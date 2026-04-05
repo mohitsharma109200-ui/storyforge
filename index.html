@@ -401,8 +401,8 @@
   <!-- API Key -->
   <div class="api-card">
     <div class="field" style="margin-bottom:0">
-      <span class="sec-label">Anthropic API Key</span>
-      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <span class="sec-label">Groq API Key</span>
+      <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off" />
       <div class="api-status unsaved" id="apiStatus">Not saved</div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="saveKey()">Save Key</button>
@@ -597,25 +597,33 @@ Do not add any meta-commentary, author notes, or summaries outside the story.`;
 // ── API call with streaming ────────────────────────────────────────────────
 async function callClaude(messages, onChunk) {
   const key = document.getElementById('apiKey').value.trim();
-  if (!key) throw new Error('Please enter your API key first.');
+  if (!key) throw new Error('Please enter your Groq API key first.');
 
   const lang = document.getElementById('language').value;
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const groqMessages = [
+    { role: 'system', content: buildSystemPrompt(lang) },
+    ...messages.map(m => ({ role: m.role, content: m.content }))
+  ];
+
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`,
+    },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 4096,
-      system: buildSystemPrompt(lang),
-      messages,
+      messages: groqMessages,
       stream: true,
+      temperature: 0.92,
     }),
   });
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `API error ${resp.status}`);
+    throw new Error(err?.error?.message || `Groq API error ${resp.status}`);
   }
 
   const reader = resp.body.getReader();
@@ -631,308 +639,4 @@ async function callClaude(messages, onChunk) {
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
       try {
-        const p = JSON.parse(data);
-        if (p.type === 'content_block_delta' && p.delta?.text) {
-          full += p.delta.text;
-          onChunk(full);
-        }
-      } catch {}
-    }
-  }
-  return full;
-}
-
-// ── Build user prompt ──────────────────────────────────────────────────────
-function buildChapterPrompt(isFirst) {
-  const premise  = document.getElementById('premise').value.trim();
-  const genre    = document.getElementById('genre').value;
-  const tone     = document.getElementById('tone').value;
-  const chapLen  = document.getElementById('chapLen').value;
-  const pov      = document.getElementById('pov').value;
-  const lang     = document.getElementById('language').value;
-  const chNum    = state.chapterNum + 1;
-
-  if (isFirst) {
-    return `Write Chapter 1 of a ${genre} novel in ${lang}.
-
-Premise: ${premise}
-Tone: ${tone}
-POV: ${pov}
-Length: ${chapLen}
-
-This is chapter 1 — establish at least two characters with depth, open with a hook, plant foreshadowing that won't pay off until later chapters, and end with a chapter-closing line that makes stopping feel impossible.`;
-  } else {
-    const prev = state.chapters[state.chapters.length - 1];
-    return `Continue the novel. Write Chapter ${chNum}.
-
-Genre: ${genre} | Tone: ${tone} | POV: ${pov} | Length: ${chapLen}
-
-STORY SO FAR (brief summary):
-${state.summary}
-
-END OF PREVIOUS CHAPTER (last ~300 words for tonal continuity):
-${prev.body.slice(-1400)}
-
-Now write Chapter ${chNum}. Pick up where the tension left off. Develop the foreshadowing planted in earlier chapters. Deepen character contradictions. End on a hook stronger than the last one.`;
-  }
-}
-
-// ── Thinking animation ─────────────────────────────────────────────────────
-const thinkMessages = [
-  "Designing character contradictions…",
-  "Planting foreshadowing seeds…",
-  "Building subtext into dialogue…",
-  "Calibrating the emotional arc…",
-  "Choosing what to leave unsaid…",
-  "Sharpening the chapter hook…",
-  "Grounding the prose in sensation…",
-  "Weaving the world into action…",
-];
-
-let thinkInterval;
-function startThinking() {
-  document.getElementById('thinking').style.display = 'block';
-  const container = document.getElementById('thinkLines');
-  container.innerHTML = '';
-  let i = 0;
-  thinkInterval = setInterval(() => {
-    if (i >= thinkMessages.length) { clearInterval(thinkInterval); return; }
-    const el = document.createElement('div');
-    el.className = 'think-line current';
-    el.textContent = (i > 0 ? '✓ ' : '→ ') + thinkMessages[i];
-    if (i > 0) {
-      const prev = container.querySelector('.current');
-      if (prev) { prev.classList.remove('current'); prev.style.color = '#2a2a3a'; }
-    }
-    container.appendChild(el);
-    i++;
-  }, 700);
-}
-function stopThinking() {
-  clearInterval(thinkInterval);
-  document.getElementById('thinking').style.display = 'none';
-}
-
-// ── Render chapter (streaming) ─────────────────────────────────────────────
-function renderStreamingChapter(chNum, fullText) {
-  const firstBreak = fullText.indexOf('\n');
-  let titlePart = '', bodyPart = '';
-
-  if (firstBreak !== -1) {
-    titlePart = fullText.slice(0, firstBreak).trim();
-    bodyPart  = fullText.slice(firstBreak).replace(/^\n+/, '');
-  } else {
-    bodyPart = fullText;
-  }
-
-  const containerId = `chapter-${chNum}`;
-  let block = document.getElementById(containerId);
-
-  if (!block) {
-    block = document.createElement('div');
-    block.className = 'chapter-block';
-    block.id = containerId;
-    document.getElementById('output').appendChild(block);
-  }
-
-  const paras = bodyPart.split('\n').filter(p => p.trim());
-
-  block.innerHTML = `
-    <div class="chapter-header">
-      <span class="chapter-num">Chapter ${chNum}</span>
-      <span class="chapter-title">${titlePart || '&nbsp;'}</span>
-    </div>
-    <div class="story-text">
-      ${paras.map((p, i) =>
-        `<p>${p}${i === paras.length - 1 && state.isGenerating ? '<span class="cursor-blink"></span>' : ''}</p>`
-      ).join('')}
-    </div>`;
-
-  return { title: titlePart, body: bodyPart };
-}
-
-// ── Update running summary ─────────────────────────────────────────────────
-async function updateSummary(newChapterBody) {
-  // Simple truncation-based summary — keep last 3 chapter summaries
-  const snippet = newChapterBody.slice(0, 600);
-  state.summary = (state.summary + `\n\nChapter ${state.chapterNum}: ${snippet}…`).slice(-2400);
-}
-
-// ── Start novel ────────────────────────────────────────────────────────────
-async function startNovel() {
-  const key = document.getElementById('apiKey').value.trim();
-  if (!key) { showError('Add your API key above first.'); return; }
-  if (!document.getElementById('premise').value.trim()) { showError('Write a premise first.'); return; }
-
-  resetOutput();
-  state.isGenerating = true;
-  setButtons(true);
-  startThinking();
-
-  try {
-    let full = '';
-    state.chapterNum = 1;
-
-    const msgs = [{ role: 'user', content: buildChapterPrompt(true) }];
-
-    full = await callClaude(msgs, (text) => {
-      stopThinking();
-      renderStreamingChapter(1, text);
-    });
-
-    const { title, body } = renderStreamingChapter(1, full);
-    state.chapters.push({ title, body, raw: full });
-    await updateSummary(body);
-
-    addSeparator();
-    document.getElementById('actionBar').style.display = 'flex';
-  } catch (e) {
-    stopThinking();
-    showError(e.message);
-  } finally {
-    state.isGenerating = false;
-    setButtons(false);
-  }
-}
-
-// ── Continue novel ─────────────────────────────────────────────────────────
-async function continueNovel() {
-  state.isGenerating = true;
-  setButtons(true);
-  startThinking();
-  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-
-  try {
-    state.chapterNum++;
-    let full = '';
-
-    const msgs = [{ role: 'user', content: buildChapterPrompt(false) }];
-
-    full = await callClaude(msgs, (text) => {
-      stopThinking();
-      renderStreamingChapter(state.chapterNum, text);
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    });
-
-    const { title, body } = renderStreamingChapter(state.chapterNum, full);
-    state.chapters.push({ title, body, raw: full });
-    await updateSummary(body);
-
-    addSeparator();
-  } catch (e) {
-    stopThinking();
-    showError(e.message);
-    state.chapterNum--;
-  } finally {
-    state.isGenerating = false;
-    setButtons(false);
-  }
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-function addSeparator() {
-  const sep = document.createElement('div');
-  sep.className = 'chapter-sep';
-  sep.textContent = '— ✦ —';
-  document.getElementById('output').appendChild(sep);
-}
-
-function resetOutput() {
-  state.chapters = [];
-  state.chapterNum = 0;
-  state.summary = '';
-  document.getElementById('output').innerHTML = '';
-  document.getElementById('actionBar').style.display = 'none';
-  hideError();
-}
-
-function resetAll() {
-  resetOutput();
-  document.getElementById('premise').value = '';
-}
-
-function setButtons(loading) {
-  document.getElementById('startBtn').disabled = loading;
-  const cont = document.getElementById('continueBtn');
-  if (cont) cont.disabled = loading;
-  if (loading) {
-    document.getElementById('startBtn').textContent = 'Writing…';
-  } else {
-    document.getElementById('startBtn').textContent =
-      state.chapters.length > 0 ? 'Restart from Chapter 1' : 'Forge Chapter 1';
-  }
-}
-
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.textContent = '⚠ ' + msg;
-  box.style.display = 'block';
-}
-function hideError() {
-  document.getElementById('errorBox').style.display = 'none';
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
-}
-
-function getAllText() {
-  return state.chapters.map((ch, i) =>
-    `CHAPTER ${i + 1}: ${ch.title}\n\n${ch.body}`
-  ).join('\n\n' + '─'.repeat(40) + '\n\n');
-}
-
-function copyAll() {
-  navigator.clipboard.writeText(getAllText()).then(() => showToast('Copied!'));
-}
-
-function exportTxt() {
-  const blob = new Blob([getAllText()], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'storyforge-novel.txt';
-  a.click();
-  showToast('Downloaded!');
-}
-
-// ── API Key persistence ────────────────────────────────────────────────────
-function saveKey() {
-  const val = document.getElementById('apiKey').value.trim();
-  if (!val) return;
-  localStorage.setItem('sf_key', val);
-  setKeyStatus(true);
-  showToast('Key saved');
-}
-function clearKey() {
-  localStorage.removeItem('sf_key');
-  document.getElementById('apiKey').value = '';
-  setKeyStatus(false);
-}
-function setKeyStatus(saved) {
-  const el = document.getElementById('apiStatus');
-  el.textContent = saved ? '✓ Saved locally' : 'Not saved';
-  el.className = 'api-status ' + (saved ? 'saved' : 'unsaved');
-}
-
-// ── Init ───────────────────────────────────────────────────────────────────
-(function init() {
-  const saved = localStorage.getItem('sf_key');
-  if (saved) {
-    document.getElementById('apiKey').value = saved;
-    setKeyStatus(true);
-  }
-  document.getElementById('apiKey').addEventListener('input', () => setKeyStatus(false));
-})();
-
-// ── Service Worker ──────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
-</script>
-</body>
-</html>
+        const p = JSON.parse(data)
