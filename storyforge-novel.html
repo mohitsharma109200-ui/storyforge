@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StoryForge — Novel Writer</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#080810" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="StoryForge" />
+<meta name="description" content="AI novel writer with foreshadowing, emotional depth, multilingual." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:       #080810;
+    --surface:  #0f0f1a;
+    --card:     #13131f;
+    --border:   #1e1e30;
+    --gold:     #d4a853;
+    --gold-dim: #8a6a2a;
+    --text:     #cec8bc;
+    --muted:    #504d60;
+    --danger:   #a05050;
+    --green:    #4a8a5a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 52px 24px 36px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 50%;
+    transform: translateX(-50%);
+    width: 120px; height: 1px;
+    background: var(--gold);
+  }
+
+  .app-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(28px, 7vw, 56px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #f0e8d0;
+    text-shadow: 0 0 60px rgba(212,168,83,0.15);
+  }
+  .app-title em {
+    color: var(--gold);
+    font-style: normal;
+  }
+  .app-tagline {
+    margin-top: 10px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Main ── */
+  main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* ── Section label ── */
+  .sec-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  /* ── API key card ── */
+  .api-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 32px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .api-card .field { flex: 1; min-width: 200px; }
+  .api-status {
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-top: 6px;
+    height: 14px;
+  }
+  .api-status.saved { color: var(--green); }
+  .api-status.unsaved { color: var(--muted); }
+
+  /* ── Inputs ── */
+  input[type="text"], input[type="password"], textarea, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Jost', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--gold);
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--muted);
+    font-style: italic;
+  }
+  textarea {
+    resize: vertical;
+    line-height: 1.6;
+    min-height: 90px;
+  }
+  select option { background: #13131f; }
+
+  /* ── Buttons ── */
+  .btn {
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 11px 22px;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .btn-gold {
+    background: var(--gold);
+    color: #080810;
+  }
+  .btn-gold:hover:not(:disabled) { background: #e0b862; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,168,83,0.25); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+  }
+  .btn-outline:hover:not(:disabled) { background: rgba(212,168,83,0.08); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+  .btn-sm { padding: 7px 14px; font-size: 11px; }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 500px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  .field { margin-bottom: 20px; }
+
+  /* ── Divider ── */
+  .divider {
+    display: flex; align-items: center; gap: 16px;
+    margin: 28px 0;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 4px;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── Generate button row ── */
+  .gen-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .btn-generate {
+    padding: 15px 48px;
+    font-size: 14px;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 3px;
+    font-weight: 600;
+  }
+
+  /* ── Thinking indicator ── */
+  #thinking {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+  .think-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+  .think-line {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 3px 0;
+    opacity: 0;
+    animation: fadeUp 0.35s ease forwards;
+  }
+  .think-line.current { color: #8a8a9a; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .think-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%  { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+  }
+
+  /* ── Story output ── */
+  #output { margin-top: 36px; }
+
+  .chapter-block {
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  .chapter-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .chapter-num {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    white-space: nowrap;
+  }
+  .chapter-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(16px, 4vw, 24px);
+    font-weight: 600;
+    color: #f0e8d0;
+    flex: 1;
+  }
+
+  .story-text {
+    font-family: 'EB Garamond', serif;
+    font-size: clamp(16px, 2.5vw, 19px);
+    line-height: 1.9;
+    color: #cec8bc;
+    text-align: justify;
+  }
+  .story-text p {
+    margin-bottom: 18px;
+    text-indent: 2em;
+  }
+  .story-text p:first-child { text-indent: 0; }
+  .story-text p:first-child::first-letter {
+    font-size: 3.2em;
+    font-weight: 500;
+    float: left;
+    line-height: 0.75;
+    margin: 6px 8px 0 0;
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 2px; height: 1em;
+    background: var(--gold);
+    animation: blink 0.75s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .chapter-sep {
+    text-align: center;
+    color: var(--gold-dim);
+    font-size: 18px;
+    letter-spacing: 10px;
+    margin: 16px 0 36px;
+    opacity: 0.6;
+  }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Error ── */
+  .error-box {
+    background: rgba(160,80,80,0.1);
+    border: 1px solid rgba(160,80,80,0.3);
+    border-radius: 4px;
+    padding: 14px 18px;
+    color: #c08080;
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--gold);
+    color: #080810;
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Scroll to top ── */
+  .ornament { color: var(--gold-dim); font-size: 14px; text-align: center; letter-spacing: 6px; margin-bottom: 24px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="app-title">STORY<em>FORGE</em></div>
+  <div class="app-tagline">Novel Writer · Multilingual · Pocket Novel Ready</div>
+</header>
+
+<main>
+
+  <!-- API Key -->
+  <div class="api-card">
+    <div class="field" style="margin-bottom:0">
+      <span class="sec-label">Anthropic API Key</span>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <div class="api-status unsaved" id="apiStatus">Not saved</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="saveKey()">Save Key</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearKey()">Clear</button>
+  </div>
+
+  <!-- Setup -->
+  <div class="ornament">✦ &nbsp; ✦ &nbsp; ✦</div>
+
+  <div class="field">
+    <span class="sec-label">Story Premise</span>
+    <textarea id="premise" rows="4" placeholder="A girl discovers her deceased grandmother was a spy during the Cold War — and someone is still watching the family…"></textarea>
+  </div>
+
+  <div class="grid-3">
+    <div class="field">
+      <span class="sec-label">Genre</span>
+      <select id="genre">
+        <option>Romance</option>
+        <option>Thriller</option>
+        <option>Fantasy</option>
+        <option>Sci-Fi</option>
+        <option>Mystery</option>
+        <option>Horror</option>
+        <option>Historical Fiction</option>
+        <option>Magical Realism</option>
+        <option>Literary Fiction</option>
+        <option>Action / Adventure</option>
+        <option>Dark Romance</option>
+        <option>Slice of Life</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="sec-label">Tone</span>
+      <select id="tone">
+        <option>Emotionally intense</option>
+        <option>Slow burn</option>
+        <option>Dark and brooding</option>
+        <option>Tense and gripping</option>
+        <option>Warm and nostalgic</option>
+        <option>Eerie and unsettling</option>
+        <option>Hopeful yet bittersweet</option>
+        <option>Urgent and breathless</option>
+        <option>Wry and melancholic</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="sec-label">Output Language</span>
+      <select id="language">
+        <option value="English">English</option>
+        <option value="Hindi">Hindi (हिंदी)</option>
+        <option value="Spanish">Spanish (Español)</option>
+        <option value="French">French (Français)</option>
+        <option value="Korean">Korean (한국어)</option>
+        <option value="Japanese">Japanese (日本語)</option>
+        <option value="Portuguese">Portuguese (Português)</option>
+        <option value="Indonesian">Indonesian (Bahasa)</option>
+        <option value="Arabic">Arabic (العربية)</option>
+        <option value="German">German (Deutsch)</option>
+        <option value="Italian">Italian (Italiano)</option>
+        <option value="Tamil">Tamil (தமிழ்)</option>
+        <option value="Bengali">Bengali (বাংলা)</option>
+        <option value="Urdu">Urdu (اردو)</option>
+        <option value="Turkish">Turkish (Türkçe)</option>
+        <option value="Russian">Russian (Русский)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="field">
+      <span class="sec-label">Chapter Length</span>
+      <select id="chapLen">
+        <option value="around 800 words">Short (~800 words)</option>
+        <option value="around 1400 words" selected>Medium (~1400 words)</option>
+        <option value="around 2200 words">Long (~2200 words)</option>
+        <option value="around 3000 words">Extended (~3000 words)</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="sec-label">POV Style</span>
+      <select id="pov">
+        <option>First person (I / me)</option>
+        <option>Third person limited (she/he follows one character)</option>
+        <option>Third person omniscient</option>
+        <option>Second person (you) — immersive</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="divider">begin</div>
+
+  <div class="gen-row">
+    <button class="btn btn-gold btn-generate" id="startBtn" onclick="startNovel()">Forge Chapter 1</button>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Thinking -->
+  <div id="thinking">
+    <div class="think-label">Crafting<span class="think-dots"></span></div>
+    <div id="thinkLines"></div>
+  </div>
+
+  <!-- Output -->
+  <div id="output"></div>
+
+  <!-- Action bar (shown after first chapter) -->
+  <div class="action-bar" id="actionBar" style="display:none">
+    <button class="btn btn-gold" id="continueBtn" onclick="continueNovel()">→ Next Chapter</button>
+    <button class="btn btn-ghost" onclick="copyAll()">Copy All</button>
+    <button class="btn btn-ghost" onclick="exportTxt()">Export .txt</button>
+    <button class="btn btn-ghost" style="margin-left:auto" onclick="resetAll()">New Story</button>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  chapters: [],      // [{title, body}]
+  chapterNum: 0,
+  isGenerating: false,
+  summary: '',       // running plot summary for context continuity
+};
+
+// ── Craft System Prompt ────────────────────────────────────────────────────
+function buildSystemPrompt(lang) {
+  return `You are one of the greatest living novelists. You write pocket novels — stories that grip readers by the throat and refuse to let go — but you do so without sacrificing craft, emotional truth, or literary quality.
+
+You write ENTIRELY in ${lang}. Every word — including chapter titles, dialogue, internal thoughts, descriptions — must be in ${lang}. Do not switch to any other language for any reason.
+
+═══ CORE CRAFT PRINCIPLES ═══
+
+1. FORESHADOWING (non-negotiable)
+   — Plant 2-4 foreshadowing seeds in EVERY chapter. They should feel like atmosphere, detail, or throwaway lines — their weight only visible in hindsight.
+   — Never announce foreshadowing. It must be invisible until it detonates.
+
+2. EMOTIONAL TRUTH
+   — Characters feel things the way real people do: contradictory, half-formed, surprising even to themselves.
+   — NEVER name emotions directly. Never write "she felt sad" or "he was angry."
+   — Instead: show the hands, the breath, the silence, the misplaced joke, the thing they said instead of the thing they meant.
+
+3. SUBTEXT IN DIALOGUE
+   — What characters say and what they mean are NEVER the same.
+   — Dialogue should carry at least two meanings simultaneously — the surface conversation and the real one underneath.
+   — Use interruption, deflection, pauses, and topic-changes as emotional tools.
+
+4. SHOW, DON'T TELL — ALWAYS
+   — Every abstract statement must become a concrete image, action, or sensation.
+   — Replace adjectives with verbs. Replace summaries with scenes.
+
+5. SENSORY GROUNDING
+   — Every scene must be rooted in at least two senses beyond sight.
+   — The smell of rain, the texture of a chair, the specific sound of footsteps — these are what make prose feel alive.
+
+6. PROSE RHYTHM
+   — Vary sentence length with intention. Short sentences for shock, revelation, or breathlessness. Long sentences for memory, longing, and interior drift.
+   — Avoid sentence monotony. Read every paragraph as if it has a heartbeat.
+
+7. CHARACTER DEPTH
+   — Every character wants something specific and concrete. Their want must be visible in every scene.
+   — But what they WANT and what they NEED are opposites. The story slowly reveals this gap.
+   — Give each major character one specific contradiction — something they believe about themselves that isn't true.
+
+8. THE HOOK LAW
+   — First sentence of every chapter: must demand the reader continue.
+   — Last line of every chapter: must make stopping feel like a small death.
+   — This is a pocket novel. The end-of-chapter hook is sacred.
+
+9. WORLD-BUILDING (if applicable)
+   — Never info-dump. Weave world details into action and sensation.
+   — The world should feel fully real, but revealed through experience, not exposition.
+
+10. AVOID AT ALL COSTS
+    — Clichés ("heart pounded," "blood ran cold," "tears streamed")
+    — Purple prose (overwrought metaphors that draw attention to themselves)
+    — Telling readers what to feel
+    — Summarizing scenes instead of living them
+    — Characters who exist only to serve plot
+    — Convenient coincidences without earned setup
+
+═══ OUTPUT FORMAT ═══
+Begin your output with just the chapter title (no "Chapter N:" prefix — just the title, evocative and specific).
+Then write the chapter body.
+Do not add any meta-commentary, author notes, or summaries outside the story.`;
+}
+
+// ── API call with streaming ────────────────────────────────────────────────
+async function callClaude(messages, onChunk) {
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key) throw new Error('Please enter your API key first.');
+
+  const lang = document.getElementById('language').value;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      system: buildSystemPrompt(lang),
+      messages,
+      stream: true,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API error ${resp.status}`);
+  }
+
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let full = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const raw = dec.decode(value, { stream: true });
+    for (const line of raw.split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const p = JSON.parse(data);
+        if (p.type === 'content_block_delta' && p.delta?.text) {
+          full += p.delta.text;
+          onChunk(full);
+        }
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// ── Build user prompt ──────────────────────────────────────────────────────
+function buildChapterPrompt(isFirst) {
+  const premise  = document.getElementById('premise').value.trim();
+  const genre    = document.getElementById('genre').value;
+  const tone     = document.getElementById('tone').value;
+  const chapLen  = document.getElementById('chapLen').value;
+  const pov      = document.getElementById('pov').value;
+  const lang     = document.getElementById('language').value;
+  const chNum    = state.chapterNum + 1;
+
+  if (isFirst) {
+    return `Write Chapter 1 of a ${genre} novel in ${lang}.
+
+Premise: ${premise}
+Tone: ${tone}
+POV: ${pov}
+Length: ${chapLen}
+
+This is chapter 1 — establish at least two characters with depth, open with a hook, plant foreshadowing that won't pay off until later chapters, and end with a chapter-closing line that makes stopping feel impossible.`;
+  } else {
+    const prev = state.chapters[state.chapters.length - 1];
+    return `Continue the novel. Write Chapter ${chNum}.
+
+Genre: ${genre} | Tone: ${tone} | POV: ${pov} | Length: ${chapLen}
+
+STORY SO FAR (brief summary):
+${state.summary}
+
+END OF PREVIOUS CHAPTER (last ~300 words for tonal continuity):
+${prev.body.slice(-1400)}
+
+Now write Chapter ${chNum}. Pick up where the tension left off. Develop the foreshadowing planted in earlier chapters. Deepen character contradictions. End on a hook stronger than the last one.`;
+  }
+}
+
+// ── Thinking animation ─────────────────────────────────────────────────────
+const thinkMessages = [
+  "Designing character contradictions…",
+  "Planting foreshadowing seeds…",
+  "Building subtext into dialogue…",
+  "Calibrating the emotional arc…",
+  "Choosing what to leave unsaid…",
+  "Sharpening the chapter hook…",
+  "Grounding the prose in sensation…",
+  "Weaving the world into action…",
+];
+
+let thinkInterval;
+function startThinking() {
+  document.getElementById('thinking').style.display = 'block';
+  const container = document.getElementById('thinkLines');
+  container.innerHTML = '';
+  let i = 0;
+  thinkInterval = setInterval(() => {
+    if (i >= thinkMessages.length) { clearInterval(thinkInterval); return; }
+    const el = document.createElement('div');
+    el.className = 'think-line current';
+    el.textContent = (i > 0 ? '✓ ' : '→ ') + thinkMessages[i];
+    if (i > 0) {
+      const prev = container.querySelector('.current');
+      if (prev) { prev.classList.remove('current'); prev.style.color = '#2a2a3a'; }
+    }
+    container.appendChild(el);
+    i++;
+  }, 700);
+}
+function stopThinking() {
+  clearInterval(thinkInterval);
+  document.getElementById('thinking').style.display = 'none';
+}
+
+// ── Render chapter (streaming) ─────────────────────────────────────────────
+function renderStreamingChapter(chNum, fullText) {
+  const firstBreak = fullText.indexOf('\n');
+  let titlePart = '', bodyPart = '';
+
+  if (firstBreak !== -1) {
+    titlePart = fullText.slice(0, firstBreak).trim();
+    bodyPart  = fullText.slice(firstBreak).replace(/^\n+/, '');
+  } else {
+    bodyPart = fullText;
+  }
+
+  const containerId = `chapter-${chNum}`;
+  let block = document.getElementById(containerId);
+
+  if (!block) {
+    block = document.createElement('div');
+    block.className = 'chapter-block';
+    block.id = containerId;
+    document.getElementById('output').appendChild(block);
+  }
+
+  const paras = bodyPart.split('\n').filter(p => p.trim());
+
+  block.innerHTML = `
+    <div class="chapter-header">
+      <span class="chapter-num">Chapter ${chNum}</span>
+      <span class="chapter-title">${titlePart || '&nbsp;'}</span>
+    </div>
+    <div class="story-text">
+      ${paras.map((p, i) =>
+        `<p>${p}${i === paras.length - 1 && state.isGenerating ? '<span class="cursor-blink"></span>' : ''}</p>`
+      ).join('')}
+    </div>`;
+
+  return { title: titlePart, body: bodyPart };
+}
+
+// ── Update running summary ─────────────────────────────────────────────────
+async function updateSummary(newChapterBody) {
+  // Simple truncation-based summary — keep last 3 chapter summaries
+  const snippet = newChapterBody.slice(0, 600);
+  state.summary = (state.summary + `\n\nChapter ${state.chapterNum}: ${snippet}…`).slice(-2400);
+}
+
+// ── Start novel ────────────────────────────────────────────────────────────
+async function startNovel() {
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key) { showError('Add your API key above first.'); return; }
+  if (!document.getElementById('premise').value.trim()) { showError('Write a premise first.'); return; }
+
+  resetOutput();
+  state.isGenerating = true;
+  setButtons(true);
+  startThinking();
+
+  try {
+    let full = '';
+    state.chapterNum = 1;
+
+    const msgs = [{ role: 'user', content: buildChapterPrompt(true) }];
+
+    full = await callClaude(msgs, (text) => {
+      stopThinking();
+      renderStreamingChapter(1, text);
+    });
+
+    const { title, body } = renderStreamingChapter(1, full);
+    state.chapters.push({ title, body, raw: full });
+    await updateSummary(body);
+
+    addSeparator();
+    document.getElementById('actionBar').style.display = 'flex';
+  } catch (e) {
+    stopThinking();
+    showError(e.message);
+  } finally {
+    state.isGenerating = false;
+    setButtons(false);
+  }
+}
+
+// ── Continue novel ─────────────────────────────────────────────────────────
+async function continueNovel() {
+  state.isGenerating = true;
+  setButtons(true);
+  startThinking();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+  try {
+    state.chapterNum++;
+    let full = '';
+
+    const msgs = [{ role: 'user', content: buildChapterPrompt(false) }];
+
+    full = await callClaude(msgs, (text) => {
+      stopThinking();
+      renderStreamingChapter(state.chapterNum, text);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+
+    const { title, body } = renderStreamingChapter(state.chapterNum, full);
+    state.chapters.push({ title, body, raw: full });
+    await updateSummary(body);
+
+    addSeparator();
+  } catch (e) {
+    stopThinking();
+    showError(e.message);
+    state.chapterNum--;
+  } finally {
+    state.isGenerating = false;
+    setButtons(false);
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function addSeparator() {
+  const sep = document.createElement('div');
+  sep.className = 'chapter-sep';
+  sep.textContent = '— ✦ —';
+  document.getElementById('output').appendChild(sep);
+}
+
+function resetOutput() {
+  state.chapters = [];
+  state.chapterNum = 0;
+  state.summary = '';
+  document.getElementById('output').innerHTML = '';
+  document.getElementById('actionBar').style.display = 'none';
+  hideError();
+}
+
+function resetAll() {
+  resetOutput();
+  document.getElementById('premise').value = '';
+}
+
+function setButtons(loading) {
+  document.getElementById('startBtn').disabled = loading;
+  const cont = document.getElementById('continueBtn');
+  if (cont) cont.disabled = loading;
+  if (loading) {
+    document.getElementById('startBtn').textContent = 'Writing…';
+  } else {
+    document.getElementById('startBtn').textContent =
+      state.chapters.length > 0 ? 'Restart from Chapter 1' : 'Forge Chapter 1';
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getAllText() {
+  return state.chapters.map((ch, i) =>
+    `CHAPTER ${i + 1}: ${ch.title}\n\n${ch.body}`
+  ).join('\n\n' + '─'.repeat(40) + '\n\n');
+}
+
+function copyAll() {
+  navigator.clipboard.writeText(getAllText()).then(() => showToast('Copied!'));
+}
+
+function exportTxt() {
+  const blob = new Blob([getAllText()], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'storyforge-novel.txt';
+  a.click();
+  showToast('Downloaded!');
+}
+
+// ── API Key persistence ────────────────────────────────────────────────────
+function saveKey() {
+  const val = document.getElementById('apiKey').value.trim();
+  if (!val) return;
+  localStorage.setItem('sf_key', val);
+  setKeyStatus(true);
+  showToast('Key saved');
+}
+function clearKey() {
+  localStorage.removeItem('sf_key');
+  document.getElementById('apiKey').value = '';
+  setKeyStatus(false);
+}
+function setKeyStatus(saved) {
+  const el = document.getElementById('apiStatus');
+  el.textContent = saved ? '✓ Saved locally' : 'Not saved';
+  el.className = 'api-status ' + (saved ? 'saved' : 'unsaved');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(function init() {
+  const saved = localStorage.getItem('sf_key');
+  if (saved) {
+    document.getElementById('apiKey').value = saved;
+    setKeyStatus(true);
+  }
+  document.getElementById('apiKey').addEventListener('input', () => setKeyStatus(false));
+})();
+
+// ── Service Worker ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

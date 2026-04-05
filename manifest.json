@@ -1,0 +1,34 @@
+{
+  "name": "StoryForge — Novel Writer",
+  "short_name": "StoryForge",
+  "description": "AI-powered novel writer with foreshadowing, emotional depth, and multilingual support.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080810",
+  "theme_color": "#080810",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "entertainment"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Story",
+      "short_name": "New",
+      "description": "Start a new novel",
+      "url": "/?new=1"
+    }
+  ]
+}
